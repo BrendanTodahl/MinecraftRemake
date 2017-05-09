@@ -3,20 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 
 public class ChunkManager : MonoBehaviour {
-    // used for buildFace debugging
-    //Instantiate(cube, new Vector3(transform.position.x + x, transform.position.y + y, transform.position.z + z), Quaternion.identity);
 
-    [SerializeField]
-    GameObject cube;
-    public static int chunkWidth = 20, chunkHeight = 20;
+    public const int ChunkWidth = 20;
+    public const int ChunkHeight = 20;
 
-    private bool isDone = false; // Flag to indicate that the chunk has been generated in the world
-    public bool IsDone
-    {
-        get { return isDone; }
-    }
-
-    private byte[,,] map = new byte[chunkWidth, chunkHeight, chunkWidth]; // data containing the types of bricks within a chunk
+    private byte[,,] map = new byte[ChunkWidth, ChunkHeight, ChunkWidth]; // data containing the types of bricks within a chunk
     public byte[,,] Map
     {
         get { return map; }
@@ -27,34 +18,51 @@ public class ChunkManager : MonoBehaviour {
     private Mesh visualMesh;
     private MeshFilter meshFilter;
     private MeshCollider meshCollider;
-    private MeshRenderer meshRenderer;
-
-    private Object semaphore = new Object();
 
     void Start () {
         meshFilter = GetComponent<MeshFilter>();
         meshCollider = GetComponent<MeshCollider>();
-        meshRenderer = GetComponent<MeshRenderer>();
 
         createMapFromScratch();
         StartCoroutine(CreateVisualMesh());
-        isDone = true;
+
+        // Reskin neighbor chunk meshes for boundary cases
+        GameObject leftChunk = LandscapeManager.FindChunk(transform.position + new Vector3(-1, 0, 0));
+        if (leftChunk != null)
+        {
+            StartCoroutine(leftChunk.GetComponent<ChunkManager>().CreateVisualMesh());
+        }
+        GameObject rightChunk = LandscapeManager.FindChunk(transform.position + new Vector3(ChunkWidth, 0, 0));
+        if (rightChunk != null)
+        {
+            StartCoroutine(rightChunk.GetComponent<ChunkManager>().CreateVisualMesh());
+        }
+        GameObject frontChunk = LandscapeManager.FindChunk(transform.position + new Vector3(0, 0, -1));
+        if (frontChunk != null)
+        {
+            StartCoroutine(frontChunk.GetComponent<ChunkManager>().CreateVisualMesh());
+        }
+        GameObject backChunk = LandscapeManager.FindChunk(transform.position + new Vector3(0, 0, ChunkWidth));
+        if (backChunk != null)
+        {
+            StartCoroutine(backChunk.GetComponent<ChunkManager>().CreateVisualMesh());
+        }
     }
 
     // Assign types of bricks to every position in the chunk's map
     private void createMapFromScratch()
     {
         int seed = LandscapeManager.getSeed();
-        for (int x = 0; x < chunkWidth; x++)
+        for (int x = 0; x < ChunkWidth; x++)
         {
-            for (int z = 0; z < chunkWidth; z++)
+            for (int z = 0; z < ChunkWidth; z++)
             {
                 int height = (int)(Mathf.PerlinNoise(((int)transform.position.x + x + seed) / detailScale, ((int)transform.position.z + z + seed) / detailScale) * heightScale);
-                for (int y = 0; y < chunkHeight; y++)
+                for (int y = 0; y < ChunkHeight; y++)
                 {
                     if (y < height)
                     {
-                        map[x, y, z] = 0; // hidden block
+                        map[x, y, z] = 0; // space below visible block. Not visible
                     }
                     else if (y == height)
                     {
@@ -62,7 +70,7 @@ public class ChunkManager : MonoBehaviour {
                     }
                     else
                     {
-                        map[x, y, z] = 2; // space above visible blocks 
+                        map[x, y, z] = 2; // space above visible blocks. Not visible
                     }
                 }
             }
@@ -70,7 +78,7 @@ public class ChunkManager : MonoBehaviour {
     }
 
     // Coroutine to create the mesh of the chunk
-    public virtual IEnumerator CreateVisualMesh()
+    public IEnumerator CreateVisualMesh()
     {
         visualMesh = new Mesh();
 
@@ -78,53 +86,37 @@ public class ChunkManager : MonoBehaviour {
         List<Vector2> uvs = new List<Vector2>();
         List<int> tris = new List<int>();
 
-        for (int x = 0; x < chunkWidth; x++)
+        for (int x = 0; x < ChunkWidth; x++)
         {
-            for (int y = 0; y < chunkHeight; y++)
+            for (int y = 0; y < ChunkHeight; y++)
             {
-                for (int z = 0; z < chunkWidth; z++)
+                for (int z = 0; z < ChunkWidth; z++)
                 {
-                    GameObject chunk = null;
-                    if (x == 0)
+                    if (map[x, y, z] == 2) continue;
+
+                    if (isTransparant(x + 1, y, z)) // right face
                     {
-                        chunk = LandscapeManager.FindChunk(new Vector3(transform.position.x - 20, transform.position.y, transform.position.z));
-                        if (chunk != null && chunk.GetComponent<ChunkManager>().IsDone)
-                        {
-                            byte[,,] adjacentMap = chunk.GetComponent<ChunkManager>().Map;
-                            determineIfBuildableFaceLR(verts, uvs, tris, x, y, z, adjacentMap);
-                        }
+                        buildFace(verts, uvs, tris, new Vector3(x + 1, y, z), Vector3.up, Vector3.forward);
                     }
-                    else if (x == chunkWidth - 1)
+                    if (isTransparant(x - 1, y, z)) // left face
                     {
-                        chunk = LandscapeManager.FindChunk(new Vector3(transform.position.x + 20, transform.position.y, transform.position.z));
-                        if (chunk != null && chunk.GetComponent<ChunkManager>().IsDone)
-                        {
-                            byte[,,] adjacentMap = chunk.GetComponent<ChunkManager>().Map;
-                            determineIfBuildableFaceLR(verts, uvs, tris, x, y, z, adjacentMap);
-                        }
+                        buildFace(verts, uvs, tris, new Vector3(x, y, z + 1), Vector3.up, Vector3.back);
                     }
-                    if (z == 0)
+                    if (isTransparant(x, y + 1, z)) // top face
                     {
-                        chunk = LandscapeManager.FindChunk(new Vector3(transform.position.x, transform.position.y, transform.position.z - 20));
-                        if (chunk != null && chunk.GetComponent<ChunkManager>().IsDone)
-                        {
-                            byte[,,] adjacentMap = chunk.GetComponent<ChunkManager>().Map;
-                            determineIfBuildableFace(verts, uvs, tris, x, y, z, adjacentMap);
-                        }
+                        buildFace(verts, uvs, tris, new Vector3(x, y + 1, z), Vector3.forward, Vector3.right);
                     }
-                    else if (z == chunkWidth - 1)
+                    if (isTransparant(x, y - 1, z)) // bottom face
                     {
-                        chunk = LandscapeManager.FindChunk(new Vector3(transform.position.x, transform.position.y, transform.position.z + 20));
-                        if (chunk != null && chunk.GetComponent<ChunkManager>().IsDone)
-                        {
-                            byte[,,] adjacentMap = chunk.GetComponent<ChunkManager>().Map;
-                            determineIfBuildableFace(verts, uvs, tris, x, y, z, adjacentMap);
-                        }
+                        buildFace(verts, uvs, tris, new Vector3(x, y, z + 1), Vector3.back, Vector3.right);
                     }
-                    if (map[x, y, z] != 2) // if not above visible layer, continue
+                    if (isTransparant(x, y, z + 1)) // back face
                     {
-                        determineIfBuildableFaceLR(verts, uvs, tris, x, y, z, null);
-                        determineIfBuildableFace(verts, uvs, tris, x, y, z, null);
+                        buildFace(verts, uvs, tris, new Vector3(x + 1, y, z + 1), Vector3.up, Vector3.left);
+                    }
+                    if (isTransparant(x, y, z - 1)) // front face
+                    {
+                        buildFace(verts, uvs, tris, new Vector3(x, y, z), Vector3.up, Vector3.right);
                     }
                 }
             }
@@ -136,90 +128,68 @@ public class ChunkManager : MonoBehaviour {
         visualMesh.RecalculateBounds();
         visualMesh.RecalculateNormals();
 
-        meshFilter.mesh = visualMesh;
+        meshFilter = GetComponent<MeshFilter>();
+        meshFilter.sharedMesh = null;
+        meshFilter.sharedMesh = visualMesh;
 
+        meshCollider = GetComponent<MeshCollider>();
         meshCollider.sharedMesh = null;
         meshCollider.sharedMesh = visualMesh;
 
         yield return 0;
     }
 
-    // Helper method for CreateVisualMesh(). Determines whether to build left and right faces
-    private void determineIfBuildableFaceLR(List<Vector3> verts, List<Vector2> uvs, List<int> tris, int x, int y, int z, byte[,,] adjacentMap)
+    private bool isTransparant(int x, int y, int z)
     {
-        // Left face
-        if (x - 1 >= 0 && map[x - 1, y, z] == 2 && adjacentMap == null) // normal left face
+        byte brick = GetByte(x, y, z);
+        switch (brick)
         {
-            buildFace(verts, uvs, tris, new Vector3(x, y, z + 1), Vector3.up, Vector3.back);
-        }
-        else if (adjacentMap != null && x == 0 && map[0, y, z] == 2 && (adjacentMap[chunkWidth - 1, y, z] == 0 || adjacentMap[chunkWidth - 1, y, z] == 1)) // left face as player walks along -x-axis
-        {
-            buildFace(verts, uvs, tris, new Vector3(x, y, z), Vector3.up, Vector3.forward);
-        }
-        else if (adjacentMap != null && x == 0 && (map[0, y, z] == 0 || map[x, y, z] == 1) && adjacentMap[chunkWidth - 1, y, z] == 2) // left face as player walks along -x-axis
-        {
-            buildFace(verts, uvs, tris, new Vector3(x, y, z + 1), Vector3.up, Vector3.back);
-        }
-        // Right face
-        if (x + 1 < chunkWidth && map[x + 1, y, z] == 2 && adjacentMap == null) // normal right face
-        {
-            buildFace(verts, uvs, tris, new Vector3(x + 1, y, z), Vector3.up, Vector3.forward);
-        }
-        else if (adjacentMap != null && x == chunkWidth - 1 && (map[chunkWidth - 1, y, z] == 0 || map[chunkWidth - 1, y, z] == 1) && adjacentMap[0, y, z] == 2) // right face as player walks along +x-axis
-        {
-            buildFace(verts, uvs, tris, new Vector3(x + 1, y, z), Vector3.up, Vector3.forward);
-        }
-        else if (adjacentMap != null && x == chunkWidth - 1 && map[chunkWidth - 1, y, z] == 2 && (adjacentMap[0, y, z] == 0 || adjacentMap[0, y, z] == 1)) // right face as player walks along +x-axis
-        {
-            buildFace(verts, uvs, tris, new Vector3(x + 1, y, z + 1), Vector3.up, Vector3.back);
+            case 2:
+                return true;
+            default:
+                return false;
         }
     }
 
-    // Helper method for CreateVisualMesh(). Determines whether to build front, back, and top faces
-    private void determineIfBuildableFace(List<Vector3> verts, List<Vector2> uvs, List<int> tris, int x, int y, int z, byte[,,] adjacentMap)
+    public byte GetByte(int x, int y, int z)
     {
-        // Front face
-        if (z - 1 >= 0 && map[x, y, z - 1] == 2 && adjacentMap == null) // normal front face
+        if (y < 0)
         {
-            buildFace(verts, uvs, tris, new Vector3(x, y, z), Vector3.up, Vector3.right);
+            return 0;
         }
-        else if (adjacentMap != null && z == chunkWidth - 1 && map[x, y, chunkWidth - 1] == 2 && (adjacentMap[x, y, 0] == 0 || adjacentMap[x, y, 0] == 1)) // front face as player walks along -z-axis
+        else if (y >= ChunkHeight)
         {
-            buildFace(verts, uvs, tris, new Vector3(x, y, z + 1), Vector3.up, Vector3.right);
+            return 2;
         }
-        else if (adjacentMap != null && z == chunkWidth - 1 && (map[x, y, chunkWidth - 1] == 0 || map[x, y, chunkWidth - 1] == 1) && adjacentMap[x, y, 0] == 2) // back face as player walks along -z-axis
+
+        if ((x < 0) || (z < 0) || (x >= ChunkWidth) || (z >= ChunkWidth))
         {
-            buildFace(verts, uvs, tris, new Vector3(x + 1, y, z + 1), Vector3.up, Vector3.left);
+
+            Vector3 worldPos = new Vector3(x, y, z) + transform.position;
+            GameObject chunk = LandscapeManager.FindChunk(worldPos);
+            if (chunk == null)
+            {
+                return 1;
+            }
+
+            return chunk.GetComponent<ChunkManager>().GetByte(worldPos);
         }
-        // Back face
-        if (z + 1 < chunkWidth && map[x, y, z + 1] == 2 && adjacentMap == null) // normal back face
-        {
-            buildFace(verts, uvs, tris, new Vector3(x + 1, y, z + 1), Vector3.up, Vector3.left);
-        }
-        else if (adjacentMap != null && z == 0 && map[x, y, 0] == 2 && (adjacentMap[x, y, chunkWidth - 1] == 0 || adjacentMap[x, y, chunkWidth - 1] == 1)) // back face as player walks along +z-axis
-        {
-            buildFace(verts, uvs, tris, new Vector3(x + 1, y, z), Vector3.up, Vector3.left);
-        }
-        else if (adjacentMap != null && z == 0 && (map[x, y, 0] == 0 || map[x, y, 0] == 1) && adjacentMap[x, y, chunkWidth - 1] == 2) // front face as player walks along +z-axis
-        {
-            buildFace(verts, uvs, tris, new Vector3(x, y, z), Vector3.up, Vector3.right);
-        }
-        // Top face
-        if (y + 1 < chunkHeight && map[x, y + 1, z] == 2 && adjacentMap == null) // normal top face
-        {
-            buildFace(verts, uvs, tris, new Vector3(x, y + 1, z), Vector3.forward, Vector3.right);
-        }
-        // bottom face
-        //if (y - 1 >= 0 && map[x, y - 1, z] == 2)
-        //{
-        //    buildFace(verts, uvs, tris, new Vector3(x, y, z + 1), Vector3.back, Vector3.right);
-        //}
+        return map[x, y, z];
+    }
+
+    public byte GetByte(Vector3 worldPos)
+    {
+        worldPos -= transform.position;
+        int x = Mathf.FloorToInt(worldPos.x);
+        int y = Mathf.FloorToInt(worldPos.y);
+        int z = Mathf.FloorToInt(worldPos.z);
+        return GetByte(x, y, z);
     }
 
     // Helper method for createVisualMesh(). Adds vertices, uvs, and triangles to Lists
     private void buildFace(List<Vector3> verts, List<Vector2> uvs, List<int> tris, Vector3 bottom_left, Vector3 up, Vector3 right)
     {
-        int index = verts.Count; // Verts current count
+        int index = verts.Count;
 
         // add vertices
         verts.Add(bottom_left);

@@ -17,18 +17,19 @@ public class LandscapeManager : MonoBehaviour {
     }
 	
 	void Update () {
-        for (float x = player.transform.position.x - viewRange; x < player.transform.position.x + viewRange; x += ChunkManager.chunkWidth)
+        for (float x = player.transform.position.x - viewRange; x < player.transform.position.x + viewRange; x += ChunkManager.ChunkWidth)
         {
-            for (float z = player.transform.position.z - viewRange; z < player.transform.position.z + viewRange; z += ChunkManager.chunkWidth)
+            for (float z = player.transform.position.z - viewRange; z < player.transform.position.z + viewRange; z += ChunkManager.ChunkWidth)
             {
                 Vector3 pos = new Vector3(x, 0, z);
-                pos.x = Mathf.Floor(pos.x / (float)ChunkManager.chunkWidth) * ChunkManager.chunkWidth;
-                pos.z = Mathf.Floor(pos.z / (float)ChunkManager.chunkWidth) * ChunkManager.chunkWidth;
+                pos.x = Mathf.Floor(pos.x / ChunkManager.ChunkWidth) * ChunkManager.ChunkWidth;
+                pos.z = Mathf.Floor(pos.z / ChunkManager.ChunkWidth) * ChunkManager.ChunkWidth;
 
                 GameObject chunk = FindChunk(pos);
                 if (chunk == null)
                 {
                     chunk = Instantiate(chunkPrefab, pos, Quaternion.identity) as GameObject;
+                    chunk.name = "Chunk " + chunks.Count;
                     chunks.Add(chunk);
                 }
             }
@@ -52,7 +53,7 @@ public class LandscapeManager : MonoBehaviour {
         for (int i = 0; i < chunks.Count; i++)
         {
             Vector3 cpos = chunks[i].transform.position;
-            if (!(pos.x < cpos.x) && !(pos.z < cpos.z) && !(pos.x >= cpos.x + ChunkManager.chunkWidth) && !(pos.z >= cpos.z + ChunkManager.chunkWidth))
+            if (!(pos.x < cpos.x) && !(pos.z < cpos.z) && !(pos.x >= cpos.x + ChunkManager.ChunkWidth) && !(pos.z >= cpos.z + ChunkManager.ChunkWidth))
             {
                 chunk = chunks[i];
                 i = chunks.Count;
