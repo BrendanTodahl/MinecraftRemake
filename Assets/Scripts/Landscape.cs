@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-public class LandscapeManager : MonoBehaviour {
+public class Landscape : MonoBehaviour {
 
     public GameObject player;
     public GameObject chunkPrefab;
@@ -17,13 +17,13 @@ public class LandscapeManager : MonoBehaviour {
     }
 	
 	void Update () {
-        for (float x = player.transform.position.x - viewRange; x < player.transform.position.x + viewRange; x += ChunkManager.ChunkWidth)
+        for (float x = player.transform.position.x - viewRange; x < player.transform.position.x + viewRange; x += Chunk.ChunkWidth)
         {
-            for (float z = player.transform.position.z - viewRange; z < player.transform.position.z + viewRange; z += ChunkManager.ChunkWidth)
+            for (float z = player.transform.position.z - viewRange; z < player.transform.position.z + viewRange; z += Chunk.ChunkWidth)
             {
                 Vector3 pos = new Vector3(x, 0, z);
-                pos.x = Mathf.Floor(pos.x / ChunkManager.ChunkWidth) * ChunkManager.ChunkWidth;
-                pos.z = Mathf.Floor(pos.z / ChunkManager.ChunkWidth) * ChunkManager.ChunkWidth;
+                pos.x = Mathf.Floor(pos.x / Chunk.ChunkWidth) * Chunk.ChunkWidth;
+                pos.z = Mathf.Floor(pos.z / Chunk.ChunkWidth) * Chunk.ChunkWidth;
 
                 GameObject chunk = FindChunk(pos);
                 if (chunk == null)
@@ -53,7 +53,7 @@ public class LandscapeManager : MonoBehaviour {
         for (int i = 0; i < chunks.Count; i++)
         {
             Vector3 cpos = chunks[i].transform.position;
-            if (!(pos.x < cpos.x) && !(pos.z < cpos.z) && !(pos.x >= cpos.x + ChunkManager.ChunkWidth) && !(pos.z >= cpos.z + ChunkManager.ChunkWidth))
+            if (!(pos.x < cpos.x) && !(pos.z < cpos.z) && !(pos.x >= cpos.x + Chunk.ChunkWidth) && !(pos.z >= cpos.z + Chunk.ChunkWidth))
             {
                 chunk = chunks[i];
                 i = chunks.Count;

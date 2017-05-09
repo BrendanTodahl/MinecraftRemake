@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-public class ChunkManager : MonoBehaviour {
+public class Chunk : MonoBehaviour {
 
     public const int ChunkWidth = 20;
     public const int ChunkHeight = 20;
@@ -27,32 +27,32 @@ public class ChunkManager : MonoBehaviour {
         StartCoroutine(CreateVisualMesh());
 
         // Reskin neighbor chunk meshes for boundary cases
-        GameObject leftChunk = LandscapeManager.FindChunk(transform.position + new Vector3(-1, 0, 0));
+        GameObject leftChunk = Landscape.FindChunk(transform.position + new Vector3(-1, 0, 0));
         if (leftChunk != null)
         {
-            StartCoroutine(leftChunk.GetComponent<ChunkManager>().CreateVisualMesh());
+            StartCoroutine(leftChunk.GetComponent<Chunk>().CreateVisualMesh());
         }
-        GameObject rightChunk = LandscapeManager.FindChunk(transform.position + new Vector3(ChunkWidth, 0, 0));
+        GameObject rightChunk = Landscape.FindChunk(transform.position + new Vector3(ChunkWidth, 0, 0));
         if (rightChunk != null)
         {
-            StartCoroutine(rightChunk.GetComponent<ChunkManager>().CreateVisualMesh());
+            StartCoroutine(rightChunk.GetComponent<Chunk>().CreateVisualMesh());
         }
-        GameObject frontChunk = LandscapeManager.FindChunk(transform.position + new Vector3(0, 0, -1));
+        GameObject frontChunk = Landscape.FindChunk(transform.position + new Vector3(0, 0, -1));
         if (frontChunk != null)
         {
-            StartCoroutine(frontChunk.GetComponent<ChunkManager>().CreateVisualMesh());
+            StartCoroutine(frontChunk.GetComponent<Chunk>().CreateVisualMesh());
         }
-        GameObject backChunk = LandscapeManager.FindChunk(transform.position + new Vector3(0, 0, ChunkWidth));
+        GameObject backChunk = Landscape.FindChunk(transform.position + new Vector3(0, 0, ChunkWidth));
         if (backChunk != null)
         {
-            StartCoroutine(backChunk.GetComponent<ChunkManager>().CreateVisualMesh());
+            StartCoroutine(backChunk.GetComponent<Chunk>().CreateVisualMesh());
         }
     }
 
     // Assign types of bricks to every position in the chunk's map
     private void createMapFromScratch()
     {
-        int seed = LandscapeManager.getSeed();
+        int seed = Landscape.getSeed();
         for (int x = 0; x < ChunkWidth; x++)
         {
             for (int z = 0; z < ChunkWidth; z++)
@@ -166,13 +166,13 @@ public class ChunkManager : MonoBehaviour {
         {
 
             Vector3 worldPos = new Vector3(x, y, z) + transform.position;
-            GameObject chunk = LandscapeManager.FindChunk(worldPos);
+            GameObject chunk = Landscape.FindChunk(worldPos);
             if (chunk == null)
             {
                 return 1;
             }
 
-            return chunk.GetComponent<ChunkManager>().GetByte(worldPos);
+            return chunk.GetComponent<Chunk>().GetByte(worldPos);
         }
         return map[x, y, z];
     }
