@@ -9,14 +9,12 @@ public class Landscape : MonoBehaviour {
 
     public static List<GameObject> chunks = new List<GameObject>();
 
-    private int viewRange = 30;
+    private int viewRange = 100;
     public static int seed;
 
 	void Start () {
         seed = (int)Network.time * 10;
-    }
-	
-	void Update () {
+
         for (float x = player.transform.position.x - viewRange; x < player.transform.position.x + viewRange; x += Chunk.ChunkWidth)
         {
             for (float z = player.transform.position.z - viewRange; z < player.transform.position.z + viewRange; z += Chunk.ChunkWidth)
@@ -34,7 +32,9 @@ public class Landscape : MonoBehaviour {
                 }
             }
         }
-
+    }
+	
+	void Update () {
         // Quit the app
         if ((Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) && Input.GetKey(KeyCode.Q))
         {

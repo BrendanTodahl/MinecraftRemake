@@ -7,14 +7,14 @@ public class Chunk : MonoBehaviour {
     public const int ChunkWidth = 20;
     public const int ChunkHeight = 20;
 
-    private byte[,,] map = new byte[ChunkWidth, ChunkHeight, ChunkWidth]; // data containing the types of bricks within a chunk
-    public byte[,,] Map
+    private byte[,,] brickType = new byte[ChunkWidth, ChunkHeight, ChunkWidth];
+    public byte[,,] BrickType
     {
-        get { return map; }
+        get { return brickType; }
     }
 
     private int heightScale = 20; // used by perlin noise for world generation
-    private float detailScale = 25.0f; // used by perlin noise for world generation
+    private float detailScale = 30.0f; // used by perlin noise for world generation
     private Mesh visualMesh;
     private MeshFilter meshFilter;
     private MeshCollider meshCollider;
@@ -23,7 +23,7 @@ public class Chunk : MonoBehaviour {
         meshFilter = GetComponent<MeshFilter>();
         meshCollider = GetComponent<MeshCollider>();
 
-        createMapFromScratch();
+        assignBrickTypes();
         StartCoroutine(CreateVisualMesh());
 
         // Reskin neighbor chunk meshes for boundary cases
@@ -49,8 +49,7 @@ public class Chunk : MonoBehaviour {
         }
     }
 
-    // Assign types of bricks to every position in the chunk's map
-    private void createMapFromScratch()
+    private void assignBrickTypes()
     {
         int seed = Landscape.getSeed();
         for (int x = 0; x < ChunkWidth; x++)
@@ -58,26 +57,29 @@ public class Chunk : MonoBehaviour {
             for (int z = 0; z < ChunkWidth; z++)
             {
                 int height = (int)(Mathf.PerlinNoise(((int)transform.position.x + x + seed) / detailScale, ((int)transform.position.z + z + seed) / detailScale) * heightScale);
+                if (height < 0)
+                {
+                    height = 0; // Lowest possible height for the world
+                }
                 for (int y = 0; y < ChunkHeight; y++)
                 {
                     if (y < height)
                     {
-                        map[x, y, z] = 0; // space below visible block. Not visible
+                        brickType[x, y, z] = 0; // bricks 'in the ground'. Not visible
                     }
                     else if (y == height)
                     {
-                        map[x, y, z] = 1; // visible block
+                        brickType[x, y, z] = 1; // visible block
                     }
                     else
                     {
-                        map[x, y, z] = 2; // space above visible blocks. Not visible
+                        brickType[x, y, z] = 2; // brick doesn't 'exist'
                     }
                 }
             }
         }
     }
 
-    // Coroutine to create the mesh of the chunk
     public IEnumerator CreateVisualMesh()
     {
         visualMesh = new Mesh();
@@ -92,7 +94,7 @@ public class Chunk : MonoBehaviour {
             {
                 for (int z = 0; z < ChunkWidth; z++)
                 {
-                    if (map[x, y, z] == 2) continue;
+                    if (brickType[x, y, z] == 2) continue;
 
                     if (isTransparant(x + 1, y, z)) // right face
                     {
@@ -174,7 +176,7 @@ public class Chunk : MonoBehaviour {
 
             return chunk.GetComponent<Chunk>().GetByte(worldPos);
         }
-        return map[x, y, z];
+        return brickType[x, y, z];
     }
 
     public byte GetByte(Vector3 worldPos)
@@ -191,19 +193,16 @@ public class Chunk : MonoBehaviour {
     {
         int index = verts.Count;
 
-        // add vertices
         verts.Add(bottom_left);
         verts.Add(bottom_left + up);
         verts.Add(bottom_left + up + right);
         verts.Add(bottom_left + right);
 
-        // add uvs
         uvs.Add(new Vector2(0.0f, 0.0f));
         uvs.Add(new Vector2(0.0f, 1.0f));
         uvs.Add(new Vector2(1.0f, 1.0f));
         uvs.Add(new Vector2(1.0f, 0.0f));
 
-        // add tris
         tris.Add(index);
         tris.Add(index + 1);
         tris.Add(index + 2);
